@@ -1,5 +1,8 @@
 package org.koala.db;
 
+import javax.sql.CommonDataSource;
+import javax.sql.DataSource;
+
 /**
  * Author: srliu
  * Date: 9/9/19
@@ -10,13 +13,42 @@ public class KoalaConfig {
     private int maxIdleSeconds;
     private int maxActive;
 
+//    private DataSource dataSource;
+
+    private String driverClass;
+
     private String jdbcUrl;
     private String userName;
     private String password;
 
-    private String driverClass;
+    private String testSql;
+    private boolean readOnly = false;
+    private boolean autoCommit = true;
 
 
+    public String getTestSql() {
+        return testSql;
+    }
+
+    public void setTestSql(String testSql) {
+        this.testSql = testSql;
+    }
+
+    public boolean isReadOnly() {
+        return readOnly;
+    }
+
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+    }
+
+    public boolean isAutoCommit() {
+        return autoCommit;
+    }
+
+    public void setAutoCommit(boolean autoCommit) {
+        this.autoCommit = autoCommit;
+    }
 
     public int getMinIdle() {
         return minIdle;

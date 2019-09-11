@@ -7,7 +7,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.logging.Logger;
 
-public class KoalaDataSource implements ConnectionPoolDataSource, DataSource, XADataSource {
+public class KoalaDataSource implements DataSource/*, ConnectionPoolDataSource, XADataSource*/ {
     @Override
     public <T> T unwrap(Class<T> aClass) throws SQLException {
         return null;
@@ -19,32 +19,12 @@ public class KoalaDataSource implements ConnectionPoolDataSource, DataSource, XA
     }
 
     @Override
-    public PooledConnection getPooledConnection() throws SQLException {
-        return null;
-    }
-
-    @Override
-    public PooledConnection getPooledConnection(String s, String s1) throws SQLException {
-        return null;
-    }
-
-    @Override
     public Connection getConnection() throws SQLException {
         return null;
     }
 
     @Override
     public Connection getConnection(String username, String password) throws SQLException {
-        return null;
-    }
-
-    @Override
-    public XAConnection getXAConnection() throws SQLException {
-        return null;
-    }
-
-    @Override
-    public XAConnection getXAConnection(String s, String s1) throws SQLException {
         return null;
     }
 

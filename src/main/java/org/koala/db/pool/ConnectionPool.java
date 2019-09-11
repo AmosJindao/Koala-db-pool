@@ -16,13 +16,19 @@ public class ConnectionPool {
     private KoalaConfig koalaConfig;
 
     public ConnectionPool(KoalaConfig koalaConfig) {
+
+
         this.koalaConfig = koalaConfig;
     }
+
+
 
     public synchronized Connection getConnection() {
         return null;
     }
 
+    public synchronized void release(Connection connection) {
 
+    }
 
 }
