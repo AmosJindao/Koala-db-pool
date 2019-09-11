@@ -34,7 +34,7 @@ public class KoalaDataSource implements ConnectionPoolDataSource, DataSource, XA
     }
 
     @Override
-    public Connection getConnection(String s, String s1) throws SQLException {
+    public Connection getConnection(String username, String password) throws SQLException {
         return null;
     }
 

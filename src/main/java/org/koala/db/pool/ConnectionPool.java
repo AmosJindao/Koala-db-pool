@@ -15,15 +15,14 @@ public class ConnectionPool {
 
     private KoalaConfig koalaConfig;
 
-
-
-    private Connection createConnection() throws SQLException, ClassNotFoundException {
-        if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
-            Class.forName(koalaConfig.getDriverClass());
-        }
-
-        Connection conn = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
-
-        return conn;
+    public ConnectionPool(KoalaConfig koalaConfig) {
+        this.koalaConfig = koalaConfig;
     }
+
+    public synchronized Connection getConnection() {
+        return null;
+    }
+
+
+
 }
