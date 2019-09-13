@@ -7,11 +7,13 @@ import javax.sql.DataSource;
  * Author: srliu
  * Date: 9/9/19
  */
-public class KoalaConfig {
+public class KoalaConfiguration {
     private int minIdle;
     private int maxIdle;
     private int maxIdleSeconds;
     private int maxActive;
+
+    private boolean testBefore;
 
 //    private DataSource dataSource;
 
@@ -24,7 +26,6 @@ public class KoalaConfig {
     private String testSql;
     private boolean readOnly = false;
     private boolean autoCommit = true;
-
 
     public String getTestSql() {
         return testSql;

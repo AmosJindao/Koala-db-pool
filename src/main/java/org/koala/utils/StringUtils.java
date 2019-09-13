@@ -8,7 +8,7 @@ public final class StringUtils {
     private StringUtils() {
     }
 
-    public static boolean isBlank(final CharSequence cs) {
+    public static boolean isBlank( CharSequence cs ) {
         if (cs == null || cs.length() == 0) {
             return true;
         }

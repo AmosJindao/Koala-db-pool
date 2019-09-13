@@ -1,6 +1,6 @@
 package org.koala.db.connection;
 
-import org.koala.db.KoalaConfig;
+import org.koala.db.KoalaConfiguration;
 import org.koala.db.pool.ConnectionPool;
 import org.koala.utils.StringUtils;
 
@@ -26,9 +26,9 @@ public class KoalaConnection implements Connection {
 
     private Connection connection;
 
-    private KoalaConfig koalaConfig;
+    private KoalaConfiguration koalaConfig;
 
-    private KoalaConnection(KoalaConfig koalaConfig) {
+    private KoalaConnection(KoalaConfiguration koalaConfig) {
         this.koalaConfig = koalaConfig;
     }
 
