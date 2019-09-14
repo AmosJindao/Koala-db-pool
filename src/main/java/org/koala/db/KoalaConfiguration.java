@@ -1,8 +1,5 @@
 package org.koala.db;
 
-import javax.sql.CommonDataSource;
-import javax.sql.DataSource;
-
 /**
  * Author: srliu
  * Date: 9/9/19
@@ -13,7 +10,9 @@ public class KoalaConfiguration {
     private int maxIdleSeconds;
     private int maxActive;
 
-    private boolean testBefore;
+    private boolean testBeforeReturn = false;
+    private boolean testAfterCreation = false;
+    private boolean testWhenChecking = false;
 
 //    private DataSource dataSource;
 
@@ -26,6 +25,30 @@ public class KoalaConfiguration {
     private String testSql;
     private boolean readOnly = false;
     private boolean autoCommit = true;
+
+    public boolean isTestBeforeReturn() {
+        return testBeforeReturn;
+    }
+
+    public void setTestBeforeReturn(boolean testBeforeReturn) {
+        this.testBeforeReturn = testBeforeReturn;
+    }
+
+    public boolean isTestAfterCreation() {
+        return testAfterCreation;
+    }
+
+    public void setTestAfterCreation(boolean testAfterCreation) {
+        this.testAfterCreation = testAfterCreation;
+    }
+
+    public boolean isTestWhenChecking() {
+        return testWhenChecking;
+    }
+
+    public void setTestWhenChecking(boolean testWhenChecking) {
+        this.testWhenChecking = testWhenChecking;
+    }
 
     public String getTestSql() {
         return testSql;
@@ -56,7 +79,11 @@ public class KoalaConfiguration {
     }
 
     public void setMinIdle(int minIdle) {
-        this.minIdle = minIdle;
+        if (minIdle < 0) {
+            this.minIdle = 0;
+        } else {
+            this.minIdle = minIdle;
+        }
     }
 
     public int getMaxIdle() {
@@ -64,7 +91,11 @@ public class KoalaConfiguration {
     }
 
     public void setMaxIdle(int maxIdle) {
-        this.maxIdle = maxIdle;
+        if (maxIdle < 0) {
+            this.maxIdle = 0;
+        } else {
+            this.maxIdle = maxIdle;
+        }
     }
 
     public int getMaxIdleSeconds() {
@@ -80,7 +111,11 @@ public class KoalaConfiguration {
     }
 
     public void setMaxActive(int maxActive) {
-        this.maxActive = maxActive;
+        if (maxActive <= 0) {
+            this.maxActive = 1;
+        } else {
+            this.maxActive = maxActive;
+        }
     }
 
     public String getJdbcUrl() {

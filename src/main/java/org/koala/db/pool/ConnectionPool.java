@@ -28,21 +28,9 @@ public class ConnectionPool {
     private AtomicInteger allActiveCount = new AtomicInteger(0);
 
     public ConnectionPool(KoalaConfiguration koalaConfig) {
-        if (koalaConfig.getMinIdle() < 0) {
-            koalaConfig.setMinIdle(0);
-        }
-
-        if (koalaConfig.getMaxIdle() < 0) {
-            koalaConfig.setMaxIdle(0);
-        }
-
         if (koalaConfig.getMinIdle() > koalaConfig.getMaxIdle()) {
             throw new ConfigurationException(ErrorCode.ERR_IDLE_NUM.getCode(), ErrorCode.ERR_IDLE_NUM.getDescription() +
                     " koala.pool.min.idle: " + koalaConfig.getMinIdle() + "; koala.pool.max.idle: " + koalaConfig.getMaxIdle());
-        }
-
-        if (koalaConfig.getMaxActive() <= 0) {
-            koalaConfig.setMaxActive(1);
         }
 
         if (koalaConfig.getMaxIdle() > koalaConfig.getMaxActive()) {
