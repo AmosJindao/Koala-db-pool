@@ -5,6 +5,8 @@ import org.koala.db.connection.KoalaConnection;
 import org.koala.db.exception.ConfigurationException;
 import org.koala.utils.ErrorCode;
 import org.koala.utils.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.util.Deque;
@@ -17,6 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Date: 9/9/19
  */
 public class ConnectionPool {
+    private static Logger LOG = LoggerFactory.getLogger(ConnectionPool.class);
+
+    private static final long FREE_CHECK_PERIOD = 5 * 60 * 1000l;
 
     private KoalaConfiguration koalaConfig;
 
@@ -60,19 +65,76 @@ public class ConnectionPool {
 
     public synchronized Connection getConnection() {
         KoalaConnection koalaConnection = idleConns.poll();
-        if (koalaConnection != null) {
-            busyConns.offer(koalaConnection);
-            idleCount.decrementAndGet();
-            busyCount.incrementAndGet();
+        while (koalaConnection != null) {
+            koalaConnection = setUpKoalaConnection(koalaConnection);
+            if (koalaConnection != null) {
+                busyConns.offer(koalaConnection);
 
+                idleCount.decrementAndGet();
+                busyCount.incrementAndGet();
 
+                return koalaConnection;
+            }
         }
 
         return null;
+    }
+
+    private KoalaConnection setUpKoalaConnection(KoalaConnection koalaConnection) {
+        if (koalaConfig.isTestBeforeReturn() && koalaConnection.getLastCheckedMillis() - System.currentTimeMillis() > FREE_CHECK_PERIOD) {
+            koalaConnection.checkConnection();
+        }
     }
 
     public synchronized void release(Connection connection) {
 
     }
 
+    public KoalaConfiguration getKoalaConfig() {
+        return koalaConfig;
+    }
+
+    public void setKoalaConfig(KoalaConfiguration koalaConfig) {
+        this.koalaConfig = koalaConfig;
+    }
+
+    public BlockingDeque<KoalaConnection> getIdleConns() {
+        return idleConns;
+    }
+
+    public void setIdleConns(BlockingDeque<KoalaConnection> idleConns) {
+        this.idleConns = idleConns;
+    }
+
+    public BlockingDeque<KoalaConnection> getBusyConns() {
+        return busyConns;
+    }
+
+    public void setBusyConns(BlockingDeque<KoalaConnection> busyConns) {
+        this.busyConns = busyConns;
+    }
+
+    public AtomicInteger getIdleCount() {
+        return idleCount;
+    }
+
+    public void setIdleCount(AtomicInteger idleCount) {
+        this.idleCount = idleCount;
+    }
+
+    public AtomicInteger getBusyCount() {
+        return busyCount;
+    }
+
+    public void setBusyCount(AtomicInteger busyCount) {
+        this.busyCount = busyCount;
+    }
+
+    public AtomicInteger getAllActiveCount() {
+        return allActiveCount;
+    }
+
+    public void setAllActiveCount(AtomicInteger allActiveCount) {
+        this.allActiveCount = allActiveCount;
+    }
 }

@@ -34,6 +34,8 @@ dependencies {
    // implementation 'com.google.guava:guava:27.0.1-jre'
     implementation 'org.apache.tomcat:tomcat-jdbc:9.0.22'
 //    implementation group: 'com.mchange', name: 'c3p0', version: '0.9.5.3'
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '1.7.28'
 
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'

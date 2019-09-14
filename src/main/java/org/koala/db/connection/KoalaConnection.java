@@ -21,18 +21,18 @@ public class KoalaConnection implements Connection {
     public static final int CONN_STATE_RELEASE = 3;
 
     private volatile int state;
+    private volatile long lastCheckedMillis;
 
     private ConnectionPool parent;
-
     private Connection connection;
 
-    private KoalaConfiguration koalaConfig;
-
-    private KoalaConnection(KoalaConfiguration koalaConfig) {
-        this.koalaConfig = koalaConfig;
+    private KoalaConnection(ConnectionPool parent) {
+        this.parent = parent;
     }
 
     private Connection createConnection() throws SQLException, ClassNotFoundException {
+        KoalaConfiguration koalaConfig = parent.getKoalaConfig();
+
         if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
             Class.forName(koalaConfig.getDriverClass());
         }
@@ -40,6 +40,23 @@ public class KoalaConnection implements Connection {
         Connection conn = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
 
         return conn;
+    }
+
+    public long getLastCheckedMillis() {
+        return lastCheckedMillis;
+    }
+
+    public void setLastCheckedMillis(long lastCheckedMillis) {
+        this.lastCheckedMillis = lastCheckedMillis;
+    }
+
+    @Override
+    public void close() throws SQLException {
+        if (parent != null) {
+            parent.release(this);
+        } else {
+            connection.close();
+        }
     }
 
     @Override
@@ -80,15 +97,6 @@ public class KoalaConnection implements Connection {
     @Override
     public void rollback() throws SQLException {
         connection.rollback();
-    }
-
-    @Override
-    public void close() throws SQLException {
-        if (parent != null) {
-            parent.release(this);
-        } else {
-            connection.close();
-        }
     }
 
     @Override
