@@ -3,6 +3,8 @@ package org.koala.db.connection;
 import org.koala.db.KoalaConfiguration;
 import org.koala.db.pool.ConnectionPool;
 import org.koala.utils.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.Map;
@@ -15,12 +17,18 @@ import java.util.concurrent.Executor;
  */
 public class KoalaConnection implements Connection {
 
+    private static Logger LOG = LoggerFactory.getLogger(KoalaConnection.class);
+
     public static final int CONN_STATE_IDLE = 0;
     public static final int CONN_STATE_BUSY = 1;
     public static final int CONN_STATE_EXPIRED = 2;
     public static final int CONN_STATE_RELEASE = 3;
 
-    private volatile int state;
+    private static final int CONN_STATUS_UNKOWN = 0;
+    private static final int CONN_STATUS_NORMAL = 1;
+    private static final int CONN_STATUS_CORRUPTION = 2;
+
+    private volatile int status = CONN_STATUS_UNKOWN;
     private volatile long lastCheckedMillis;
 
     private ConnectionPool parent;
@@ -48,6 +56,29 @@ public class KoalaConnection implements Connection {
 
     public void setLastCheckedMillis(long lastCheckedMillis) {
         this.lastCheckedMillis = lastCheckedMillis;
+    }
+
+    public boolean isNormal(){
+        return this.status == CONN_STATUS_NORMAL;
+    }
+
+    public void checkConnection() {
+        KoalaConfiguration koalaConfig = parent.getKoalaConfig();
+
+        if (StringUtils.isNotBlank(koalaConfig.getTestSql())) {
+            try {
+                PreparedStatement ps = this.connection.prepareStatement(koalaConfig.getTestSql());
+                ps.execute();
+                ps.close();
+
+                setLastCheckedMillis(System.currentTimeMillis());
+                this.status = CONN_STATUS_NORMAL;
+            } catch (SQLException e) {
+                setLastCheckedMillis(0);
+                this.status = CONN_STATUS_CORRUPTION;
+                LOG.warn("The connection test fails, and will be disposed!");
+            }
+        }
     }
 
     @Override
