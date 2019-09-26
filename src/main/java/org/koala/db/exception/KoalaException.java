@@ -12,4 +12,8 @@ public class KoalaException extends RuntimeException {
     public KoalaException(String msg) {
         super(msg);
     }
+
+    public KoalaException(String msg, Throwable t) {
+        super(msg,t);
+    }
 }

@@ -1,6 +1,7 @@
 package org.koala.db.connection;
 
 import org.koala.db.KoalaConfiguration;
+import org.koala.db.exception.ConnectionException;
 import org.koala.db.pool.ConnectionPool;
 import org.koala.utils.StringUtils;
 import org.slf4j.Logger;
@@ -58,7 +59,7 @@ public class KoalaConnection implements Connection {
         this.lastCheckedMillis = lastCheckedMillis;
     }
 
-    public boolean isNormal(){
+    public boolean isNormal() {
         return this.status == CONN_STATUS_NORMAL;
     }
 
@@ -76,7 +77,10 @@ public class KoalaConnection implements Connection {
             } catch (SQLException e) {
                 setLastCheckedMillis(0);
                 this.status = CONN_STATUS_CORRUPTION;
-                LOG.warn("The connection test fails, and will be disposed!");
+                LOG.warn("The connection fails to pass the test, and will be disposed! pool name: {}, test sql: {}",
+                        this.parent.getName(), koalaConfig.getTestSql(), e);
+
+                throw new ConnectionException("", e);
             }
         }
     }

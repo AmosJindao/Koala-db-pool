@@ -5,6 +5,8 @@ package org.koala.db;
  * Date: 9/9/19
  */
 public class KoalaConfiguration {
+    private String poolName;
+
     private int minIdle;
     private int maxIdle;
     private int maxIdleSeconds;
@@ -148,5 +150,13 @@ public class KoalaConfiguration {
 
     public void setDriverClass(String driverClass) {
         this.driverClass = driverClass;
+    }
+
+    public String getPoolName() {
+        return poolName;
+    }
+
+    public void setPoolName(String poolName) {
+        this.poolName = poolName;
     }
 }

@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.util.Deque;
+import java.util.UUID;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,7 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConnectionPool {
     private static Logger LOG = LoggerFactory.getLogger(ConnectionPool.class);
 
-    private static final long FREE_CHECK_PERIOD = 5 * 60 * 1000l;
+    private static final long FREE_CHECK_PERIOD = 5 * 60 * 1000l;//5 mins
+
+    private String name;
 
     private KoalaConfiguration koalaConfig;
 
@@ -57,6 +60,12 @@ public class ConnectionPool {
                     " koala.connection.test.sql: " + koalaConfig.getTestSql());
         }
 
+        if (StringUtils.isNotBlank(koalaConfig.getPoolName())) {
+            this.name = koalaConfig.getPoolName();
+        } else {
+            this.name = this.getClass().getSimpleName() + "_" + UUID.randomUUID().toString();
+        }
+
         this.koalaConfig = koalaConfig;
 
         idleConns = new LinkedBlockingDeque<>();
@@ -88,6 +97,15 @@ public class ConnectionPool {
 
     public synchronized void release(Connection connection) {
 
+    }
+
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public KoalaConfiguration getKoalaConfig() {
