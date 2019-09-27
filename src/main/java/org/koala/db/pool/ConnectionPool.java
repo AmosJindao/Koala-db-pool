@@ -75,7 +75,11 @@ public class ConnectionPool {
     public synchronized Connection getConnection() {
         KoalaConnection koalaConnection = idleConns.poll();
         while (koalaConnection != null) {
-            koalaConnection = setUpKoalaConnection(koalaConnection);
+            try {
+                setUpKoalaConnection(koalaConnection);
+            } catch (Exception e) {
+
+            }
             if (koalaConnection != null) {
                 busyConns.offer(koalaConnection);
 
@@ -89,8 +93,9 @@ public class ConnectionPool {
         return null;
     }
 
-    private KoalaConnection setUpKoalaConnection(KoalaConnection koalaConnection) {
-        if (koalaConfig.isTestBeforeReturn() && koalaConnection.getLastCheckedMillis() - System.currentTimeMillis() > FREE_CHECK_PERIOD) {
+    private void setUpKoalaConnection(KoalaConnection koalaConnection) {
+        if (koalaConfig.isTestBeforeReturn() && koalaConnection.isNormal() &&
+                koalaConnection.getLastCheckedMillis() - System.currentTimeMillis() > FREE_CHECK_PERIOD) {
             koalaConnection.checkConnection();
         }
     }

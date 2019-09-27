@@ -28,6 +28,7 @@ public class KoalaConnection implements Connection {
     private static final int CONN_STATUS_UNKOWN = 0;
     private static final int CONN_STATUS_NORMAL = 1;
     private static final int CONN_STATUS_CORRUPTION = 2;
+    private static final int CONN_STATUS_CLOSED = 3;
 
     private volatile int status = CONN_STATUS_UNKOWN;
     private volatile long lastCheckedMillis;
@@ -61,6 +62,18 @@ public class KoalaConnection implements Connection {
 
     public boolean isNormal() {
         return this.status == CONN_STATUS_NORMAL;
+    }
+    public boolean isClosed() {
+        return this.status == CONN_STATUS_NORMAL;
+    }
+
+    @Override
+    public boolean isClosed() throws SQLException {
+        return connection.isClosed();
+    }
+
+    public boolean isCorrupt() {
+        return this.status == CONN_STATUS_CORRUPTION;
     }
 
     public void checkConnection() {
@@ -132,11 +145,6 @@ public class KoalaConnection implements Connection {
     @Override
     public void rollback() throws SQLException {
         connection.rollback();
-    }
-
-    @Override
-    public boolean isClosed() throws SQLException {
-        return connection.isClosed();
     }
 
     @Override
