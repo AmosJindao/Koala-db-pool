@@ -40,14 +40,14 @@ public class KoalaConnection implements Connection {
         this.parent = parent;
     }
 
-    public Connection connect() throws SQLException, ClassNotFoundException {
+    public void connect() throws SQLException, ClassNotFoundException {
         KoalaConfiguration koalaConfig = parent.getKoalaConfig();
 
         if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
             Class.forName(koalaConfig.getDriverClass());
         }
 
-        Connection conn = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
+        this.connection = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
 
         if (koalaConfig.isTestAfterCreation()) {
             checkConnection();
@@ -55,8 +55,6 @@ public class KoalaConnection implements Connection {
 
         this.lastCheckedMillis = System.currentTimeMillis();
         this.status = CONN_STATUS_NORMAL;
-
-        return conn;
     }
 
     public int getStatus() {
@@ -84,7 +82,7 @@ public class KoalaConnection implements Connection {
     }
 
     public boolean isNormal() {
-        return this.status == CONN_STATUS_NORMAL;
+        return this.status == CONN_STATUS_NORMAL && this.connection != null;
     }
 
     public boolean isCorrupt() {

@@ -58,7 +58,8 @@ public class ConnectionPool {
             koalaConfig.setPassword("");
         }
 
-        if (StringUtils.isBlank(koalaConfig.getTestSql())) {
+        if (koalaConfig.isTestNeeded()
+                && StringUtils.isBlank(koalaConfig.getTestSql())) {
             throw new ConfigurationException(ErrorCode.ERR_TEST_SQL_EMPTY.getCode(), ErrorCode.ERR_TEST_SQL_EMPTY.getDescription() +
                     " koala.connection.test.sql: " + koalaConfig.getTestSql());
         }
@@ -160,7 +161,6 @@ public class ConnectionPool {
             connection = null;
         }
     }
-
 
     public String getName() {
         return name;

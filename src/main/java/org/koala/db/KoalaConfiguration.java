@@ -28,6 +28,10 @@ public class KoalaConfiguration {
     private boolean readOnly = false;
     private boolean autoCommit = true;
 
+    public boolean isTestNeeded() {
+        return isTestBeforeReturn() || isTestAfterCreation() || isTestWhenChecking();
+    }
+
     public boolean isTestBeforeReturn() {
         return testBeforeReturn;
     }
