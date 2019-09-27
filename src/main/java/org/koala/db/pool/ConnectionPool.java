@@ -3,12 +3,14 @@ package org.koala.db.pool;
 import org.koala.db.KoalaConfiguration;
 import org.koala.db.connection.KoalaConnection;
 import org.koala.db.exception.ConfigurationException;
+import org.koala.db.exception.PoolException;
 import org.koala.utils.ErrorCode;
 import org.koala.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Deque;
 import java.util.UUID;
 import java.util.concurrent.BlockingDeque;
@@ -33,6 +35,7 @@ public class ConnectionPool {
 
     private AtomicInteger idleCount = new AtomicInteger(0);
     private AtomicInteger busyCount = new AtomicInteger(0);
+    private AtomicInteger rusedCount = new AtomicInteger(0);
     private AtomicInteger allActiveCount = new AtomicInteger(0);
 
     public ConnectionPool(KoalaConfiguration koalaConfig) {
@@ -75,19 +78,49 @@ public class ConnectionPool {
     public synchronized Connection getConnection() {
         KoalaConnection koalaConnection = idleConns.poll();
         while (koalaConnection != null) {
+            boolean testPass = true;
             try {
                 setUpKoalaConnection(koalaConnection);
             } catch (Exception e) {
-
+                testPass = false;
+                LOG.error("Connection test failed!", e);
             }
-            if (koalaConnection != null) {
+            if (testPass) {
                 busyConns.offer(koalaConnection);
 
                 idleCount.decrementAndGet();
                 busyCount.incrementAndGet();
+                rusedCount.incrementAndGet();
 
                 return koalaConnection;
+            } else {
+                release(koalaConnection);
             }
+
+            koalaConnection = idleConns.poll();
+        }
+
+        if (allActiveCount.get() < this.koalaConfig.getMaxActive()) {
+            while (true) {
+                KoalaConnection newConn = new KoalaConnection(this);
+
+                try {
+                    newConn.connect();
+                } catch (Exception e) {
+                    LOG.error("Create a new connnection error! ", e);
+
+                    continue;
+                }
+
+                busyConns.offer(newConn);
+
+                allActiveCount.incrementAndGet();
+                busyCount.incrementAndGet();
+
+                return newConn;
+            }
+        } else {
+            LOG.warn("The connection pool is full!");
         }
 
         return null;
@@ -98,10 +131,34 @@ public class ConnectionPool {
                 koalaConnection.getLastCheckedMillis() - System.currentTimeMillis() > FREE_CHECK_PERIOD) {
             koalaConnection.checkConnection();
         }
+
+        try {
+            koalaConnection.setAutoCommit(koalaConfig.isAutoCommit());
+            koalaConnection.setReadOnly(koalaConfig.isReadOnly());
+        } catch (SQLException e) {
+            throw new PoolException("Setting up connetion fails!", e);
+        }
     }
 
-    public synchronized void release(Connection connection) {
+    public synchronized void release(KoalaConnection connection) {
+        busyConns.remove(connection);
+        busyCount.decrementAndGet();
 
+        if (connection.isNormal() && idleCount.get() < koalaConfig.getMaxIdle()) {
+            idleConns.offer(connection);
+            idleCount.incrementAndGet();
+        } else {
+            allActiveCount.decrementAndGet();
+
+            connection.setParent(null);
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                //ignore
+            }
+
+            connection = null;
+        }
     }
 
 

@@ -36,11 +36,11 @@ public class KoalaConnection implements Connection {
     private ConnectionPool parent;
     private Connection connection;
 
-    private KoalaConnection(ConnectionPool parent) {
+    public KoalaConnection(ConnectionPool parent) {
         this.parent = parent;
     }
 
-    private Connection createConnection() throws SQLException, ClassNotFoundException {
+    public Connection connect() throws SQLException, ClassNotFoundException {
         KoalaConfiguration koalaConfig = parent.getKoalaConfig();
 
         if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
@@ -49,7 +49,30 @@ public class KoalaConnection implements Connection {
 
         Connection conn = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
 
+        if (koalaConfig.isTestAfterCreation()) {
+            checkConnection();
+        }
+
+        this.lastCheckedMillis = System.currentTimeMillis();
+        this.status = CONN_STATUS_NORMAL;
+
         return conn;
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
+    }
+
+    public ConnectionPool getParent() {
+        return parent;
+    }
+
+    public void setParent(ConnectionPool parent) {
+        this.parent = parent;
     }
 
     public long getLastCheckedMillis() {
@@ -63,17 +86,14 @@ public class KoalaConnection implements Connection {
     public boolean isNormal() {
         return this.status == CONN_STATUS_NORMAL;
     }
-    public boolean isClosed() {
-        return this.status == CONN_STATUS_NORMAL;
+
+    public boolean isCorrupt() {
+        return this.status == CONN_STATUS_CORRUPTION;
     }
 
     @Override
     public boolean isClosed() throws SQLException {
-        return connection.isClosed();
-    }
-
-    public boolean isCorrupt() {
-        return this.status == CONN_STATUS_CORRUPTION;
+        return this.status == CONN_STATUS_NORMAL || this.connection == null || connection.isClosed();
     }
 
     public void checkConnection() {
@@ -93,7 +113,7 @@ public class KoalaConnection implements Connection {
                 LOG.warn("The connection fails to pass the test, and will be disposed! pool name: {}, test sql: {}",
                         this.parent.getName(), koalaConfig.getTestSql(), e);
 
-                throw new ConnectionException("", e);
+                throw new ConnectionException("Connection test failed!", e);
             }
         }
     }
