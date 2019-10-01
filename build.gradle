@@ -11,12 +11,6 @@ plugins {
     id 'java-library'
 }
 
-repositories {
-    // Use jcenter for resolving your dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    jcenter()
-}
-
 project.version = "0.1.0"
 
 jar {
@@ -41,7 +35,10 @@ dependencies {
     testImplementation group: 'org.testng', name: 'testng', version: '7.0.0'
     // https://mvnrepository.com/artifact/org.postgresql/postgresql
     testImplementation 'org.postgresql:postgresql:42.2.8'
+
     testImplementation 'org.apache.tomcat:tomcat-jdbc:9.0.22'
+    // https://mvnrepository.com/artifact/com.zaxxer/HikariCP
+    testImplementation group: 'com.zaxxer', name: 'HikariCP', version: '3.4.1'
     // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
     testImplementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
 
