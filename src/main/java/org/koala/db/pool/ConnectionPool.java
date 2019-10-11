@@ -74,6 +74,13 @@ public class ConnectionPool {
 
         idleConns = new LinkedBlockingDeque<>();
         busyConns = new LinkedBlockingDeque<>();
+
+        Thread checkThread = new Thread(() -> {
+
+        });
+        checkThread.setDaemon(true);
+        checkThread.start();
+
     }
 
     public synchronized Connection getConnection() {
@@ -217,4 +224,6 @@ public class ConnectionPool {
     public void setAllActiveCount(AtomicInteger allActiveCount) {
         this.allActiveCount = allActiveCount;
     }
+
+
 }
