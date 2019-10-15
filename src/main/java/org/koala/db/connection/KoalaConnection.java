@@ -11,6 +11,7 @@ import java.sql.*;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 /**
  * Author: srliu
@@ -20,24 +21,28 @@ public class KoalaConnection implements Connection {
 
     private static Logger LOG = LoggerFactory.getLogger(KoalaConnection.class);
 
-    public static final int CONN_STATE_IDLE = 0;
-    public static final int CONN_STATE_BUSY = 1;
-    public static final int CONN_STATE_EXPIRED = 2;
-    public static final int CONN_STATE_RELEASE = 3;
+    public static final int CONN_STATUS_INITIALIZING = 0;
+    public static final int CONN_STATUS_IDLE = 1;
+    public static final int CONN_STATUS_BUSY = 2;
+    public static final int CONN_STATUS_CLOSED = 3;
+//    private static final int CONN_STATUS_CORRUPTION = 2;
+//    public static final int CONN_STATUS_RELEASE = ;
 
-    private static final int CONN_STATUS_UNKOWN = 0;
-    private static final int CONN_STATUS_NORMAL = 1;
-    private static final int CONN_STATUS_CORRUPTION = 2;
-    private static final int CONN_STATUS_CLOSED = 3;
+//    private static final int CONN_STATUS_UNKOWN = 0;
+//    private static final int CONN_STATUS_NORMAL = 1;
+//    private static final int CONN_STATUS_CLOSED = 3;
 
-    private volatile int status = CONN_STATUS_UNKOWN;
+    private volatile int status = CONN_STATUS_INITIALIZING;
     private volatile long lastCheckedMillis;
 
     private ConnectionPool parent;
     private Connection connection;
+    private AbstractQueuedSynchronizer aqs;
 
     public KoalaConnection(ConnectionPool parent) {
         this.parent = parent;
+
+        aqs = new Sync();
     }
 
     public void connect() throws SQLException, ClassNotFoundException {
@@ -54,15 +59,15 @@ public class KoalaConnection implements Connection {
         }
 
         this.lastCheckedMillis = System.currentTimeMillis();
-        this.status = CONN_STATUS_NORMAL;
+        this.status = CONN_STATUS_IDLE;
     }
 
     public int getStatus() {
         return status;
     }
 
-    public void setStatus(int status) {
-        this.status = status;
+    public void setStatus(int expected, int status) {
+        this.aqs.
     }
 
     public ConnectionPool getParent() {
@@ -82,16 +87,16 @@ public class KoalaConnection implements Connection {
     }
 
     public boolean isNormal() {
-        return this.status == CONN_STATUS_NORMAL && this.connection != null;
+        return this.status != CONN_STATUS_INITIALIZING && this.status != CONN_STATUS_CLOSED && this.connection != null;
     }
 
-    public boolean isCorrupt() {
-        return this.status == CONN_STATUS_CORRUPTION;
-    }
+//    public boolean isCorrupt() {
+//        return this.status == CONN_STATUS_CORRUPTION;
+//    }
 
     @Override
     public boolean isClosed() throws SQLException {
-        return this.status == CONN_STATUS_NORMAL || this.connection == null || connection.isClosed();
+        return this.status == CONN_STATUS_CLOSED || this.connection == null || connection.isClosed();
     }
 
     public void checkConnection() {
@@ -104,10 +109,10 @@ public class KoalaConnection implements Connection {
                 ps.close();
 
                 setLastCheckedMillis(System.currentTimeMillis());
-                this.status = CONN_STATUS_NORMAL;
+//                this.status = CONN_STATUS_NORMAL;
             } catch (SQLException e) {
                 setLastCheckedMillis(0);
-                this.status = CONN_STATUS_CORRUPTION;
+                this.status = CONN_STATUS_CLOSED;
                 LOG.warn("The connection fails to pass the test, and will be disposed! pool name: {}, test sql: {}",
                         this.parent.getName(), koalaConfig.getTestSql(), e);
 
@@ -383,5 +388,10 @@ public class KoalaConnection implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return connection.isWrapperFor(iface);
+    }
+
+
+    private static class Sync extends AbstractQueuedSynchronizer {
+
     }
 }
