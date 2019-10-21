@@ -11,6 +11,7 @@ import java.sql.*;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 /**
@@ -37,12 +38,12 @@ public class KoalaConnection implements Connection {
 
     private ConnectionPool parent;
     private Connection connection;
-    private AbstractQueuedSynchronizer aqs;
+    private AtomicIntegerFieldUpdater<KoalaConnection> statusUpdater;
 
     public KoalaConnection(ConnectionPool parent) {
         this.parent = parent;
 
-        aqs = new Sync();
+        statusUpdater = AtomicIntegerFieldUpdater.newUpdater(KoalaConnection.class, "status");
     }
 
     public void connect() throws SQLException, ClassNotFoundException {
@@ -66,8 +67,12 @@ public class KoalaConnection implements Connection {
         return status;
     }
 
-    public void setStatus(int expected, int status) {
-        this.aqs.
+    public void compareAndSet(int expect, int update) {
+        this.statusUpdater.compareAndSet(this, expect, update);
+    }
+
+    public void setStatus(int status){
+        this.status = status;
     }
 
     public ConnectionPool getParent() {
@@ -388,10 +393,5 @@ public class KoalaConnection implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return connection.isWrapperFor(iface);
-    }
-
-
-    private static class Sync extends AbstractQueuedSynchronizer {
-
     }
 }

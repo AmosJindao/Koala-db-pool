@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -26,17 +28,19 @@ public class ConnectionPool {
 
     private static final long FREE_CHECK_PERIOD = 5 * 60 * 1000l;//5 mins
 
+    public static final int POOL_STATUS_INITIALIZING = 0;
+    public static final int POOL_STATUS_READY = 1;
+    public static final int POOL_STATUS_CLOSED = 2;
+
     private String name;
 
     private KoalaConfiguration koalaConfig;
 
-    private BlockingDeque<KoalaConnection> idleConns;
-    private BlockingDeque<KoalaConnection> busyConns;
-
-    private AtomicInteger idleCount = new AtomicInteger(0);
-    private AtomicInteger busyCount = new AtomicInteger(0);
+    private List<KoalaConnection> connList;
     private AtomicInteger rusedCount = new AtomicInteger(0);
     private AtomicInteger allActiveCount = new AtomicInteger(0);
+
+    private int status = POOL_STATUS_INITIALIZING;
 
     public ConnectionPool(KoalaConfiguration koalaConfig) {
         if (koalaConfig.getMinIdle() > koalaConfig.getMaxIdle()) {
@@ -72,15 +76,14 @@ public class ConnectionPool {
 
         this.koalaConfig = koalaConfig;
 
-        idleConns = new LinkedBlockingDeque<>();
-        busyConns = new LinkedBlockingDeque<>();
+//        idleConns = new LinkedBlockingDeque<>();
+//        busyConns = new LinkedBlockingDeque<>();
 
-        Thread checkThread = new Thread(() -> {
+        connList = new ArrayList<>(this.koalaConfig.getMinIdle());
 
-        });
+        Thread checkThread = new Thread(new MinIdleConnKeeper());
         checkThread.setDaemon(true);
         checkThread.start();
-
     }
 
     public synchronized Connection getConnection() {
@@ -149,8 +152,8 @@ public class ConnectionPool {
     }
 
     public synchronized void release(KoalaConnection connection) {
-        busyConns.remove(connection);
-        busyCount.decrementAndGet();
+//        busyConns.remove(connection);
+//        busyCount.decrementAndGet();
 
         if (connection.isNormal() && idleCount.get() < koalaConfig.getMaxIdle()) {
             idleConns.offer(connection);
@@ -185,38 +188,6 @@ public class ConnectionPool {
         this.koalaConfig = koalaConfig;
     }
 
-    public BlockingDeque<KoalaConnection> getIdleConns() {
-        return idleConns;
-    }
-
-    public void setIdleConns(BlockingDeque<KoalaConnection> idleConns) {
-        this.idleConns = idleConns;
-    }
-
-    public BlockingDeque<KoalaConnection> getBusyConns() {
-        return busyConns;
-    }
-
-    public void setBusyConns(BlockingDeque<KoalaConnection> busyConns) {
-        this.busyConns = busyConns;
-    }
-
-    public AtomicInteger getIdleCount() {
-        return idleCount;
-    }
-
-    public void setIdleCount(AtomicInteger idleCount) {
-        this.idleCount = idleCount;
-    }
-
-    public AtomicInteger getBusyCount() {
-        return busyCount;
-    }
-
-    public void setBusyCount(AtomicInteger busyCount) {
-        this.busyCount = busyCount;
-    }
-
     public AtomicInteger getAllActiveCount() {
         return allActiveCount;
     }
@@ -226,4 +197,10 @@ public class ConnectionPool {
     }
 
 
+    private class MinIdleConnKeeper implements Runnable {
+        @Override
+        public void run() {
+
+        }
+    }
 }
