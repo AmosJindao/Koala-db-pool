@@ -2,7 +2,7 @@ package org.koala.db.connection;
 
 import org.koala.db.KoalaConfiguration;
 import org.koala.db.exception.ConnectionException;
-import org.koala.db.pool.ConnectionPool;
+import org.koala.db.pool.ConnectionPoolImpl;
 import org.koala.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 /**
  * Author: srliu
@@ -36,11 +35,11 @@ public class KoalaConnection implements Connection {
     private volatile int status = CONN_STATUS_INITIALIZING;
     private volatile long lastCheckedMillis;
 
-    private ConnectionPool parent;
+    private ConnectionPoolImpl parent;
     private Connection connection;
     private AtomicIntegerFieldUpdater<KoalaConnection> statusUpdater;
 
-    public KoalaConnection(ConnectionPool parent) {
+    public KoalaConnection(ConnectionPoolImpl parent) {
         this.parent = parent;
 
         statusUpdater = AtomicIntegerFieldUpdater.newUpdater(KoalaConnection.class, "status");
@@ -75,11 +74,11 @@ public class KoalaConnection implements Connection {
         this.status = status;
     }
 
-    public ConnectionPool getParent() {
+    public ConnectionPoolImpl getParent() {
         return parent;
     }
 
-    public void setParent(ConnectionPool parent) {
+    public void setParent(ConnectionPoolImpl parent) {
         this.parent = parent;
     }
 

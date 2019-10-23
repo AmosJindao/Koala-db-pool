@@ -25,30 +25,30 @@ public class ConnectionPoolTests {
     public void createConnectionPool() {
         KoalaConfiguration koalaConfiguration = new KoalaConfiguration();
 
-        ConnectionPool pool = null;
+        ConnectionPoolImpl pool = null;
 
         Assert.assertThrows(ConfigurationException.class,
-                () -> new ConnectionPool(koalaConfiguration)
+                () -> new ConnectionPoolImpl(koalaConfiguration)
         );
 
         koalaConfiguration.setMinIdle(10);
         koalaConfiguration.setMaxIdle(8);
 
         Assert.assertThrows(ConfigurationException.class,
-                () -> new ConnectionPool(koalaConfiguration)
+                () -> new ConnectionPoolImpl(koalaConfiguration)
         );
 
         koalaConfiguration.setMaxIdle(20);
         koalaConfiguration.setMaxActive(15);
 
         Assert.assertThrows(ConfigurationException.class,
-                () -> new ConnectionPool(koalaConfiguration)
+                () -> new ConnectionPoolImpl(koalaConfiguration)
         );
 
         koalaConfiguration.setMaxActive(30);
 
         Assert.assertThrows(ConfigurationException.class,
-                () -> new ConnectionPool(koalaConfiguration)
+                () -> new ConnectionPoolImpl(koalaConfiguration)
         );
 
         koalaConfiguration.setJdbcUrl(JDBS_URL);
@@ -57,7 +57,7 @@ public class ConnectionPoolTests {
 
         koalaConfiguration.setTestBeforeReturn(true);
         Assert.assertThrows(ConfigurationException.class,
-                () -> new ConnectionPool(koalaConfiguration)
+                () -> new ConnectionPoolImpl(koalaConfiguration)
         );
 
         koalaConfiguration.setTestSql(TEST_SQL);
@@ -67,7 +67,7 @@ public class ConnectionPoolTests {
     public void getConnection() {
         KoalaConfiguration koalaConfiguration = genConfig();
 
-        ConnectionPool pool = new ConnectionPool(koalaConfiguration);
+        ConnectionPoolImpl pool = new ConnectionPoolImpl(koalaConfiguration);
 
         Connection connection = pool.getConnection();
 
