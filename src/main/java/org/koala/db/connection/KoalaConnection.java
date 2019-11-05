@@ -34,18 +34,18 @@ public class KoalaConnection implements Connection {
 
     private volatile int status = CONN_STATUS_INITIALIZING;
     private volatile long lastCheckedMillis;
+    private volatile long lastIdleMillis;
+    private volatile long lastBusyMillis;
 
     private ConnectionPoolImpl parent;
     private Connection connection;
     private AtomicIntegerFieldUpdater<KoalaConnection> statusUpdater;
 
-    public KoalaConnection(ConnectionPoolImpl parent) {
+    public KoalaConnection(ConnectionPoolImpl parent) throws SQLException, ClassNotFoundException {
         this.parent = parent;
 
         statusUpdater = AtomicIntegerFieldUpdater.newUpdater(KoalaConnection.class, "status");
-    }
 
-    public void connect() throws SQLException, ClassNotFoundException {
         KoalaConfiguration koalaConfig = parent.getKoalaConfig();
 
         if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
@@ -58,7 +58,6 @@ public class KoalaConnection implements Connection {
             checkConnection();
         }
 
-        this.lastCheckedMillis = System.currentTimeMillis();
         this.status = CONN_STATUS_IDLE;
     }
 
@@ -88,6 +87,22 @@ public class KoalaConnection implements Connection {
 
     public void setLastCheckedMillis(long lastCheckedMillis) {
         this.lastCheckedMillis = lastCheckedMillis;
+    }
+
+    public long getLastIdleMillis() {
+        return lastIdleMillis;
+    }
+
+    public void setLastIdleMillis(long lastIdleMillis) {
+        this.lastIdleMillis = lastIdleMillis;
+    }
+
+    public long getLastBusyMillis() {
+        return lastBusyMillis;
+    }
+
+    public void setLastBusyMillis(long lastBusyMillis) {
+        this.lastBusyMillis = lastBusyMillis;
     }
 
     public boolean isNormal() {

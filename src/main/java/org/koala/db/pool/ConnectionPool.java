@@ -13,9 +13,14 @@ public interface ConnectionPool {
 
     KoalaConfiguration getKoalaConfig();
 
+    int getIdleConnectionNum();
+
+    int getBusyConnectionNum();
+
     int getAllActiveCount();
 
     boolean isReady();
+
     boolean isClosed();
 
     Connection getConnection();

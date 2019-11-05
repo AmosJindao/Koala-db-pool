@@ -14,6 +14,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -36,6 +38,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
     private List<KoalaConnection> connList;
     private AtomicInteger rusedCount = new AtomicInteger(0);
     private AtomicInteger allActiveCount = new AtomicInteger(0);
+
+    private ExecutorService executorService = Executors.newFixedThreadPool(2);
 
     private volatile int status = POOL_STATUS_INITIALIZING;
 
@@ -78,9 +82,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
         connList = new ArrayList<>(this.koalaConfig.getMinIdle());
 
-        Thread checkThread = new Thread(new PoolKeeper());
-        checkThread.setDaemon(true);
-        checkThread.start();
+        executorService.submit(new PoolKeeper());
     }
 
     @Override
@@ -174,6 +176,22 @@ public class ConnectionPoolImpl implements ConnectionPool {
     @Override
     public void shutDown() {
         this.status = POOL_STATUS_CLOSED;
+        this.executorService.shutdown();
+
+        this.executorService = null;
+    }
+
+    public KoalaConnection createKoalaConnection() {
+
+        try {
+            KoalaConnection newConn = new KoalaConnection(this);
+
+            return newConn;
+        } catch (Exception e) {
+            LOG.error("Create a new connnection error! ", e);
+        }
+
+        return null;
     }
 
     @Override
@@ -188,7 +206,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
     @Override
     public boolean isClosed() {
-       return this.status == POOL_STATUS_CLOSED;
+        return this.status == POOL_STATUS_CLOSED;
     }
 
     public void setName(String name) {
@@ -213,14 +231,46 @@ public class ConnectionPoolImpl implements ConnectionPool {
         this.allActiveCount = allActiveCount;
     }
 
+    @Override
+    public int getIdleConnectionNum() {
+        return countConnection(KoalaConnection.CONN_STATUS_IDLE);
+    }
+
+    @Override
+    public int getBusyConnectionNum() {
+        return countConnection(KoalaConnection.CONN_STATUS_BUSY);
+    }
+
+    private int countConnection(int status) {
+        if (connList == null) {
+            return 0;
+        }
+
+        int count = 0;
+        for (KoalaConnection koalaConnection : connList) {
+            if (koalaConnection.getStatus() == status) {
+                count++;
+            }
+        }
+
+        return count;
+    }
 
     private class PoolKeeper implements Runnable {
+
         @Override
         public void run() {
-while (!isClosed()){
-    if(connList.size()<getKoalaConfig().getMinIdle()){\
-    }
-}
+            while (!isClosed()) {
+                if (connList.size() < getKoalaConfig().getMinIdle()) {
+                    KoalaConnection koalaConnection = createKoalaConnection();
+
+                    if (koalaConnection != null && koalaConnection.isNormal()) {
+                        connList.add(koalaConnection);
+                    }
+                } else if (getIdleConnectionNum() < getKoalaConfig().getMaxIdle()) {
+
+                }
+            }
         }
     }
 }
