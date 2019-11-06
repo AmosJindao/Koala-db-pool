@@ -2,7 +2,7 @@ package org.koala.db.connection;
 
 import org.koala.db.KoalaConfiguration;
 import org.koala.db.exception.ConnectionException;
-import org.koala.db.pool.ConnectionPoolImpl;
+import org.koala.db.pool.ConnectionPool;
 import org.koala.utils.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,28 +25,21 @@ public class KoalaConnection implements Connection {
     public static final int CONN_STATUS_IDLE = 1;
     public static final int CONN_STATUS_BUSY = 2;
     public static final int CONN_STATUS_CLOSED = 3;
-//    private static final int CONN_STATUS_CORRUPTION = 2;
-//    public static final int CONN_STATUS_RELEASE = ;
 
-//    private static final int CONN_STATUS_UNKOWN = 0;
-//    private static final int CONN_STATUS_NORMAL = 1;
-//    private static final int CONN_STATUS_CLOSED = 3;
-
-    private volatile int status = CONN_STATUS_INITIALIZING;
+    private volatile int status;
     private volatile long lastCheckedMillis;
-    private volatile long lastIdleMillis;
-    private volatile long lastBusyMillis;
+    private volatile long lastStatusChangeMillis;
 
-    private ConnectionPoolImpl parent;
+    private ConnectionPool pool;
     private Connection connection;
-    private AtomicIntegerFieldUpdater<KoalaConnection> statusUpdater;
 
-    public KoalaConnection(ConnectionPoolImpl parent) throws SQLException, ClassNotFoundException {
-        this.parent = parent;
+    private AtomicIntegerFieldUpdater<KoalaConnection> statusUpdater =
+            AtomicIntegerFieldUpdater.newUpdater(KoalaConnection.class, "status");
 
-        statusUpdater = AtomicIntegerFieldUpdater.newUpdater(KoalaConnection.class, "status");
+    public KoalaConnection(ConnectionPool pool) throws SQLException, ClassNotFoundException {
+        this.pool = pool;
 
-        KoalaConfiguration koalaConfig = parent.getKoalaConfig();
+        KoalaConfiguration koalaConfig = pool.getKoalaConfig();
 
         if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
             Class.forName(koalaConfig.getDriverClass());
@@ -59,26 +52,27 @@ public class KoalaConnection implements Connection {
         }
 
         this.status = CONN_STATUS_IDLE;
+        lastStatusChangeMillis = System.currentTimeMillis();
     }
 
     public int getStatus() {
         return status;
     }
 
-    public void compareAndSet(int expect, int update) {
-        this.statusUpdater.compareAndSet(this, expect, update);
+    public boolean compareAndSetStatus(int expect, int update) {
+        return this.statusUpdater.compareAndSet(this, expect, update);
     }
 
-    public void setStatus(int status){
+    public void setStatus(int status) {
         this.status = status;
     }
 
-    public ConnectionPoolImpl getParent() {
-        return parent;
+    public ConnectionPool getPool() {
+        return pool;
     }
 
-    public void setParent(ConnectionPoolImpl parent) {
-        this.parent = parent;
+    public void setPool(ConnectionPool pool) {
+        this.pool = pool;
     }
 
     public long getLastCheckedMillis() {
@@ -89,37 +83,36 @@ public class KoalaConnection implements Connection {
         this.lastCheckedMillis = lastCheckedMillis;
     }
 
-    public long getLastIdleMillis() {
-        return lastIdleMillis;
+    public long getLastStatusChangeMillis() {
+        return lastStatusChangeMillis;
     }
 
-    public void setLastIdleMillis(long lastIdleMillis) {
-        this.lastIdleMillis = lastIdleMillis;
-    }
-
-    public long getLastBusyMillis() {
-        return lastBusyMillis;
-    }
-
-    public void setLastBusyMillis(long lastBusyMillis) {
-        this.lastBusyMillis = lastBusyMillis;
+    public void setLastStatusChangeMillis(long lastStatusChangeMillis) {
+        this.lastStatusChangeMillis = lastStatusChangeMillis;
     }
 
     public boolean isNormal() {
         return this.status != CONN_STATUS_INITIALIZING && this.status != CONN_STATUS_CLOSED && this.connection != null;
     }
 
-//    public boolean isCorrupt() {
-//        return this.status == CONN_STATUS_CORRUPTION;
-//    }
-
     @Override
     public boolean isClosed() throws SQLException {
         return this.status == CONN_STATUS_CLOSED || this.connection == null || connection.isClosed();
     }
 
+    @Override
+    public void close() throws SQLException {
+        if (pool != null) {
+            pool.release(this);
+        } else {
+            connection.close();
+
+            connection = null;
+        }
+    }
+
     public void checkConnection() {
-        KoalaConfiguration koalaConfig = parent.getKoalaConfig();
+        KoalaConfiguration koalaConfig = pool.getKoalaConfig();
 
         if (StringUtils.isNotBlank(koalaConfig.getTestSql())) {
             try {
@@ -128,24 +121,14 @@ public class KoalaConnection implements Connection {
                 ps.close();
 
                 setLastCheckedMillis(System.currentTimeMillis());
-//                this.status = CONN_STATUS_NORMAL;
             } catch (SQLException e) {
                 setLastCheckedMillis(0);
                 this.status = CONN_STATUS_CLOSED;
                 LOG.warn("The connection fails to pass the test, and will be disposed! pool name: {}, test sql: {}",
-                        this.parent.getName(), koalaConfig.getTestSql(), e);
+                        this.pool.getName(), koalaConfig.getTestSql(), e);
 
                 throw new ConnectionException("Connection test failed!", e);
             }
-        }
-    }
-
-    @Override
-    public void close() throws SQLException {
-        if (parent != null) {
-            parent.release(this);
-        } else {
-            connection.close();
         }
     }
 
