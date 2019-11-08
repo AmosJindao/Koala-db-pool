@@ -36,21 +36,32 @@ public class KoalaConnection implements Connection {
     private AtomicIntegerFieldUpdater<KoalaConnection> statusUpdater =
             AtomicIntegerFieldUpdater.newUpdater(KoalaConnection.class, "status");
 
-    public KoalaConnection(ConnectionPool pool) throws SQLException, ClassNotFoundException {
+    public KoalaConnection(ConnectionPool pool) {
         this.pool = pool;
 
         KoalaConfiguration koalaConfig = pool.getKoalaConfig();
 
-        if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
-            Class.forName(koalaConfig.getDriverClass());
+        try {
+            this.connection = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
+
+
+            if (koalaConfig.isTestAfterCreation()) {
+                checkConnection();
+            }
+
+            setAutoCommit(koalaConfig.isAutoCommit());
+            setReadOnly(koalaConfig.isReadOnly());
+        } catch (SQLException e) {
+            if (this.connection != null) {
+                try {
+                    this.connection.close();
+                    this.connection = null;
+                } catch (SQLException e1) {
+                    //ignore
+                }
+            }
+            throw new ConnectionException("Error in creation!", e);
         }
-
-        this.connection = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
-
-        if (koalaConfig.isTestAfterCreation()) {
-            checkConnection();
-        }
-
         this.status = CONN_STATUS_IDLE;
         lastStatusChangeMillis = System.currentTimeMillis();
     }
@@ -95,6 +106,10 @@ public class KoalaConnection implements Connection {
         return this.status != CONN_STATUS_INITIALIZING && this.status != CONN_STATUS_CLOSED && this.connection != null;
     }
 
+    public boolean isIdle() {
+        return this.status == CONN_STATUS_IDLE && this.connection != null;
+    }
+
     @Override
     public boolean isClosed() throws SQLException {
         return this.status == CONN_STATUS_CLOSED || this.connection == null || connection.isClosed();
@@ -105,6 +120,8 @@ public class KoalaConnection implements Connection {
         if (pool != null) {
             pool.release(this);
         } else {
+            this.status = CONN_STATUS_CLOSED;
+
             connection.close();
 
             connection = null;

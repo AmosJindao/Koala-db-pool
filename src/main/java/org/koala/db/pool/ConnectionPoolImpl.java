@@ -6,6 +6,7 @@ import org.koala.db.exception.ConfigurationException;
 import org.koala.db.exception.PoolException;
 import org.koala.utils.ErrorCode;
 import org.koala.utils.StringUtils;
+import org.koala.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +79,14 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
         this.koalaConfig = koalaConfig;
 
+        if (StringUtils.isNotBlank(koalaConfig.getDriverClass())) {
+            try {
+                Class.forName(koalaConfig.getDriverClass());
+            } catch (ClassNotFoundException e) {
+                throw new PoolException("Database driver class was not found, class: " + this.koalaConfig.getDriverClass(), e);
+            }
+        }
+
 //        idleConns = new LinkedBlockingDeque<>();
 //        busyConns = new LinkedBlockingDeque<>();
 
@@ -88,67 +97,57 @@ public class ConnectionPoolImpl implements ConnectionPool {
 
     @Override
     public synchronized Connection getConnection() {
-        KoalaConnection koalaConnection = idleConns.poll();
-        while (koalaConnection != null) {
-            boolean testPass = true;
-            try {
-                setUpKoalaConnection(koalaConnection);
-            } catch (Exception e) {
-                testPass = false;
-                LOG.error("Connection test failed!", e);
+        Iterator<KoalaConnection> connIter = connList.iterator();
+        while (connIter.hasNext()) {
+            KoalaConnection tmpConn = connIter.next();
+            if (tmpConn.isIdle()) {
+                if (tmpConn.compareAndSetStatus(KoalaConnection.CONN_STATUS_IDLE, KoalaConnection.CONN_STATUS_BUSY)) {
+                    boolean testPass = true;
+                    try {
+                        if (koalaConfig.isTestBeforeReturn() && tmpConn.isNormal() &&
+                                tmpConn.getLastCheckedMillis() - System.currentTimeMillis() > FREE_CHECK_PERIOD) {
+                            tmpConn.checkConnection();
+                        }
+                    } catch (Exception e) {
+                        testPass = false;
+                        LOG.error("Connection test failed!", e);
+                    }
+                    if (testPass) {
+                        rusedCount.incrementAndGet();
+
+                        return tmpConn;
+                    } else {
+                        connIter.remove();
+                        closeKoalaConnection(tmpConn);
+                    }
+                }
             }
-            if (testPass) {
-                busyConns.offer(koalaConnection);
-
-                idleCount.decrementAndGet();
-                busyCount.incrementAndGet();
-                rusedCount.incrementAndGet();
-
-                return koalaConnection;
-            } else {
-                release(koalaConnection);
-            }
-
-            koalaConnection = idleConns.poll();
         }
 
-        if (allActiveCount.get() < this.koalaConfig.getMaxActive()) {
-            while (true) {
-                KoalaConnection newConn = new KoalaConnection(this);
-
-                try {
-                    newConn.connect();
-                } catch (Exception e) {
-                    LOG.error("Create a new connnection error! ", e);
-
-                    continue;
+        while (true) {
+            int allCount = allActiveCount.get();
+            if (allCount < this.koalaConfig.getMaxActive()) {
+                if (allActiveCount.compareAndSet(allCount, allCount + 1)) {
+                    return doCreateConnection(this.koalaConfig.getCreationTimeOutSeconds() * 1000);
                 }
-
-                busyConns.offer(newConn);
-
-                allActiveCount.incrementAndGet();
-                busyCount.incrementAndGet();
-
-                return newConn;
+            } else {
+                break;
             }
-        } else {
-            LOG.warn("The connection pool is full!");
         }
 
         return null;
     }
 
-    private void setUpKoalaConnection(KoalaConnection koalaConnection) {
-        if (koalaConfig.isTestBeforeReturn() && koalaConnection.isNormal() &&
-                koalaConnection.getLastCheckedMillis() - System.currentTimeMillis() > FREE_CHECK_PERIOD) {
-            koalaConnection.checkConnection();
-        }
+    private KoalaConnection doCreateConnection(long timeOutMillis) {
+        while (true) {
+            try {
+                KoalaConnection newConn = new KoalaConnection(this);
 
-        try {
-            koalaConnection.setAutoCommit(koalaConfig.isAutoCommit());
-            koalaConnection.setReadOnly(koalaConfig.isReadOnly());
-        } catch (SQLException e) {
-            throw new PoolException("Setting up connetion fails!", e);
+                return newConn;
+            } catch (Exception e) {
+                LOG.error("Create a new connnection error! ", e);
+                Utils.sleepSilence(100);
+            }
         }
     }
 
@@ -196,14 +195,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
     }
 
     public KoalaConnection createKoalaConnection() {
-
-        try {
-            KoalaConnection newConn = new KoalaConnection(this);
-
-            return newConn;
-        } catch (Exception e) {
-            LOG.error("Create a new connnection error! ", e);
-        }
+        KoalaConnection newConn = doCreateConnection(-1l);
+        if (newConn != null) return newConn;
 
         return null;
     }
@@ -286,7 +279,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
                     while (connIter.hasNext()) {
                         KoalaConnection tmpConn = connIter.next();
 
-                        if (tmpConn.getStatus() == KoalaConnection.CONN_STATUS_IDLE &&
+                        if (tmpConn.isIdle() &&
                                 (System.currentTimeMillis() - tmpConn.getLastStatusChangeMillis() >= getKoalaConfig().getMaxIdleSeconds() * 1000) &&
                                 connList.size() > getKoalaConfig().getMinIdle()) {
                             if (tmpConn.compareAndSetStatus(KoalaConnection.CONN_STATUS_IDLE, KoalaConnection.CONN_STATUS_CLOSED)) {
@@ -298,6 +291,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
                         }
                     }
                 }
+
+                Utils.sleepSilence(500);
             }
         }
     }

@@ -12,6 +12,8 @@ public class KoalaConfiguration {
     private int maxIdleSeconds;
     private int maxActive;
 
+    private long creationTimeOutSeconds;
+
     private boolean testBeforeReturn = false;
     private boolean testAfterCreation = false;
     private boolean testWhenChecking = false;
@@ -162,5 +164,13 @@ public class KoalaConfiguration {
 
     public void setPoolName(String poolName) {
         this.poolName = poolName;
+    }
+
+    public long getCreationTimeOutSeconds() {
+        return creationTimeOutSeconds;
+    }
+
+    public void setCreationTimeOutSeconds(long creationTimeOutSeconds) {
+        this.creationTimeOutSeconds = creationTimeOutSeconds;
     }
 }
