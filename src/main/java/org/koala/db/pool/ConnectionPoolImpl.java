@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,7 +43,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
     private AtomicInteger rusedCount = new AtomicInteger(0);
     private AtomicInteger allActiveCount = new AtomicInteger(0);
 
-    private ExecutorService executorService = Executors.newFixedThreadPool(2);
+    private ExecutorService executorService = Executors.newFixedThreadPool(3);
 
     private volatile int status = POOL_STATUS_INITIALIZING;
 
@@ -90,7 +92,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
 //        idleConns = new LinkedBlockingDeque<>();
 //        busyConns = new LinkedBlockingDeque<>();
 
-        connList = new ArrayList<>(this.koalaConfig.getMinIdle());
+        connList = new CopyOnWriteArrayList<>();
 
         executorService.submit(new PoolKeeper());
     }
@@ -296,4 +298,15 @@ public class ConnectionPoolImpl implements ConnectionPool {
             }
         }
     }
+
+    private class ConnectionCreator implements Callable<KoalaConnection>{
+
+        @Override
+        public KoalaConnection call() throws Exception {
+
+            return null;
+        }
+    }
+
+
 }
