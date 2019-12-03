@@ -21,10 +21,10 @@ public class KoalaConnection implements Connection {
 
     private static Logger LOG = LoggerFactory.getLogger(KoalaConnection.class);
 
-    public static final int CONN_STATUS_INITIALIZING = 0;
-    public static final int CONN_STATUS_IDLE = 1;
-    public static final int CONN_STATUS_BUSY = 2;
-    public static final int CONN_STATUS_CLOSED = 3;
+//    public static final int CONN_STATUS_INITIALIZING = 0;
+    public static final int CONN_STATUS_IDLE = 0;
+    public static final int CONN_STATUS_BUSY = 1;
+    public static final int CONN_STATUS_CLOSED = 2;
 
     private volatile int status;
     private volatile long lastCheckedMillis;
@@ -43,7 +43,6 @@ public class KoalaConnection implements Connection {
 
         try {
             this.connection = DriverManager.getConnection(koalaConfig.getJdbcUrl(), koalaConfig.getUserName(), koalaConfig.getPassword());
-
 
             if (koalaConfig.isTestAfterCreation()) {
                 checkConnection();
@@ -103,7 +102,7 @@ public class KoalaConnection implements Connection {
     }
 
     public boolean isNormal() {
-        return this.status != CONN_STATUS_INITIALIZING && this.status != CONN_STATUS_CLOSED && this.connection != null;
+        return this.status != CONN_STATUS_CLOSED && this.connection != null;
     }
 
     public boolean isIdle() {

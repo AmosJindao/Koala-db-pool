@@ -12,15 +12,13 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Author: srliu
@@ -44,6 +42,8 @@ public class ConnectionPoolImpl implements ConnectionPool {
     private AtomicInteger allActiveCount = new AtomicInteger(0);
 
     private ExecutorService executorService = Executors.newFixedThreadPool(3);
+
+    private SynchronousQueue<KoalaConnection> handOff = new SynchronousQueue<>();
 
     private volatile int status = POOL_STATUS_INITIALIZING;
 
@@ -127,6 +127,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
         }
 
         while (true) {
+
             int allCount = allActiveCount.get();
             if (allCount < this.koalaConfig.getMaxActive()) {
                 if (allActiveCount.compareAndSet(allCount, allCount + 1)) {
@@ -265,27 +266,53 @@ public class ConnectionPoolImpl implements ConnectionPool {
         return count;
     }
 
+    //    @Override
+    public List<KoalaConnection> getIdleConnections() {
+        return connections(KoalaConnection.CONN_STATUS_IDLE);
+    }
+
+    //    @Override
+    public List<KoalaConnection> getBusyConnections() {
+        return connections(KoalaConnection.CONN_STATUS_BUSY);
+    }
+
+    private List<KoalaConnection> connections(int connStatusIdle) {
+        if (connList == null) {
+            return Collections.emptyList();
+        }
+
+        return this.connList.stream().filter(o -> o.getStatus() == connStatusIdle).collect(Collectors.toList());
+    }
+
     private class PoolKeeper implements Runnable {
 
         @Override
         public void run() {
             while (!isClosed()) {
-                if (connList.size() < getKoalaConfig().getMinIdle()) {
+               /* if (connList.size() < getKoalaConfig().getMinIdle()) {
                     KoalaConnection koalaConnection = createKoalaConnection();
 
                     if (koalaConnection != null && koalaConnection.isNormal()) {
                         connList.add(koalaConnection);
                     }
-                } else if (getIdleConnectionNum() > getKoalaConfig().getMinIdle()) {
-                    Iterator<KoalaConnection> connIter = connList.iterator();
-                    while (connIter.hasNext()) {
-                        KoalaConnection tmpConn = connIter.next();
+                } else */
+                int idleCount = getIdleConnectionNum();
+                if (idleCount > getKoalaConfig().getMinIdle()) {
+
+                    int idleCountNeedToKill = idleCount - getKoalaConfig().getMinIdle();
+                    List<KoalaConnection> idleConns = getIdleConnections();
+
+                    for (KoalaConnection tmpConn : idleConns) {
+                        if (idleCountNeedToKill <= 0) {
+                            break;
+                        }
 
                         if (tmpConn.isIdle() &&
-                                (System.currentTimeMillis() - tmpConn.getLastStatusChangeMillis() >= getKoalaConfig().getMaxIdleSeconds() * 1000) &&
-                                connList.size() > getKoalaConfig().getMinIdle()) {
+                                (System.currentTimeMillis() - tmpConn.getLastStatusChangeMillis() >= getKoalaConfig().getMaxIdleSeconds() * 1000)) {
                             if (tmpConn.compareAndSetStatus(KoalaConnection.CONN_STATUS_IDLE, KoalaConnection.CONN_STATUS_CLOSED)) {
-                                connIter.remove();
+                                connList.remove(tmpConn);
+
+                                idleCountNeedToKill--;
                                 allActiveCount.decrementAndGet();
 
                                 closeKoalaConnection(tmpConn);
@@ -299,7 +326,7 @@ public class ConnectionPoolImpl implements ConnectionPool {
         }
     }
 
-    private class ConnectionCreator implements Callable<KoalaConnection>{
+    private class ConnectionCreator implements Callable<KoalaConnection> {
 
         @Override
         public KoalaConnection call() throws Exception {
